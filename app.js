@@ -173,8 +173,7 @@ app.delete('/api/eventos/eliminar', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// <-- NUEVO: Catch-all route para que si alguien recarga la página, Express le devuelva el index.html
-app.get('*', (req, res) => {
+app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
