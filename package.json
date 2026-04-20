@@ -4,20 +4,28 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-  "start": "node app.js",
-  "dev": "nodemon app.js"
-},
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.2",
+    "@supabase/supabase-js": "^2.103.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeviAngelino2006/PromiedosLRFRC.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LeviAngelino2006/PromiedosLRFRC/issues"
+  },
+  "homepage": "https://github.com/LeviAngelino2006/PromiedosLRFRC#readme"
 }
