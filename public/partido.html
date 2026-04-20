@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LFRC - Detalle del Encuentro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .bg-institucional { background-color: #3F3A85 !important; }
+        .text-institucional { color: #3F3A85 !important; }
+        .lista-goles { font-size: 0.85rem; }
+        .equipo-link { cursor: pointer; transition: transform 0.2s; }
+        .equipo-link:hover { transform: scale(1.05); }
+        .equipo-link:hover h5 { color: #3F3A85 !important; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-institucional shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center text-white text-decoration-none opacity-75" href="index.html" style="transition: 0.2s;" onmouseover="this.classList.remove('opacity-75')" onmouseout="this.classList.add('opacity-75')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                </svg>
+                <span class="fs-6 fw-normal mb-0">Volver</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container" id="detalle-contenedor">
+        <div class="text-center p-5 text-muted">Buscando datos del partido...</div>
+    </div>
+
+    <script>
+        const API_URL = '/api'; // <-- CAMBIO A RUTA RELATIVA
+
+        function parseMinuto(m) {
+            let partes = String(m).split('+');
+            return (parseInt(partes[0]) || 0) + ((parseInt(partes[1]) || 0) * 0.01); 
+        }
+
+        function formatFechaParaPublico(fechaIso) {
+            if (!fechaIso) return 'Horario a confirmar';
+            const d = new Date(fechaIso);
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const horas = String(d.getHours()).padStart(2, '0');
+            const mins = String(d.getMinutes()).padStart(2, '0');
+            return `${dia}/${mes} - ${horas}:${mins} hs`;
+        }
+
+        async function cargarDetalle() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+
+            if(!id) return window.location.href = 'index.html';
+
+            try {
+                const res = await fetch(`${API_URL}/partidos/${id}`);
+                const p = await res.json();
+                const contenedor = document.getElementById('detalle-contenedor');
+
+                let htmlGolesLocal = '';
+                let htmlGolesVisitante = '';
+
+                if (p.eventos && p.eventos.length > 0) {
+                    const golesLoc = p.eventos.filter(e => e.jugador && e.jugador.id_club === p.id_club_local && e.tipo_evento === 'Gol').sort((a, b) => parseMinuto(a.minuto) - parseMinuto(b.minuto));
+                    const golesVis = p.eventos.filter(e => e.jugador && e.jugador.id_club === p.id_club_visitante && e.tipo_evento === 'Gol').sort((a, b) => parseMinuto(a.minuto) - parseMinuto(b.minuto));
+
+                    htmlGolesLocal = golesLoc.map(e => `<div class="mb-1">⚽ ${e.jugador.nombre} ${e.jugador.apellido} (${e.minuto}')</div>`).join('');
+                    htmlGolesVisitante = golesVis.map(e => `<div class="mb-1">(${e.minuto}') ${e.jugador.nombre} ${e.jugador.apellido} ⚽</div>`).join('');
+                }
+
+                // Definimos el Sub-Titulo Dinámico
+                let txtEstado = '';
+                let colorEstado = 'text-muted';
+                
+                if (p.estado === 'Programado') {
+                    txtEstado = formatFechaParaPublico(p.fecha_hora);
+                } else if (['PT', 'ET', 'ST', 'En vivo'].includes(p.estado)) {
+                    txtEstado = p.estado === 'En vivo' ? 'EN VIVO' : 'EN VIVO - ' + p.estado;
+                    colorEstado = 'text-danger';
+                } else {
+                    txtEstado = 'FINALIZADO';
+                }
+
+                contenedor.innerHTML = `
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header text-center text-white fw-bold bg-institucional text-uppercase">
+                            ${p.categoria.nombre} - FECHA ${p.nro_fecha || 'S/N'}
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="text-center ${colorEstado} fw-bold mb-3 small">${txtEstado}</div>
+                            
+                            <div class="row align-items-center text-center mb-3">
+                                <div class="col-4 equipo-link" onclick="window.location.href='equipo.html?id=${p.id_club_local}'" title="Ver perfil de ${p.club_local.nombre}">
+                                    <img src="${p.club_local.escudo_url}" style="width: 75px; height: 75px; object-fit: contain;">
+                                    <h5 class="fw-bold mt-2 text-dark transition-colors">${p.club_local.nombre}</h5>
+                                </div>
+                                
+                                <div class="col-4 display-4 fw-bold text-nowrap ${['PT', 'ET', 'ST', 'En vivo'].includes(p.estado) ? 'text-danger' : ''}">
+                                    ${p.goles_local} - ${p.goles_visitante}
+                                </div>
+                                
+                                <div class="col-4 equipo-link" onclick="window.location.href='equipo.html?id=${p.id_club_visitante}'" title="Ver perfil de ${p.club_visitante.nombre}">
+                                    <img src="${p.club_visitante.escudo_url}" style="width: 75px; height: 75px; object-fit: contain;">
+                                    <h5 class="fw-bold mt-2 text-dark transition-colors">${p.club_visitante.nombre}</h5>
+                                </div>
+                            </div>
+
+                            <div class="row text-muted fw-bold lista-goles mt-4 border-top pt-3">
+                                <div class="col-5 text-end text-success">${htmlGolesLocal}</div>
+                                <div class="col-2"></div>
+                                <div class="col-5 text-start text-success">${htmlGolesVisitante}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-4 bg-white">
+                        <div class="card-header bg-light fw-bold text-muted border-0 small">DETALLES DEL ENCUENTRO</div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between py-3 border-light">
+                                <span class="text-secondary fw-bold">Estadio</span>
+                                <span class="fw-bold">${p.cancha ? p.cancha.nombre : 'A confirmar'}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between py-3 border-light">
+                                <span class="text-secondary fw-bold">Capacidad</span>
+                                <span class="fw-bold">${p.cancha && p.cancha.capacidad ? p.cancha.capacidad.toLocaleString() + ' personas' : '-'}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between py-3 border-0">
+                                <span class="text-secondary fw-bold">Árbitro</span>
+                                <span class="fw-bold">${p.arbitro ? p.arbitro.nombre : 'A confirmar'}</span>
+                            </li>
+                        </ul>
+                    </div>
+                `;
+            } catch (err) {
+                document.getElementById('detalle-contenedor').innerHTML = '<div class="alert alert-danger m-3">Error al cargar el partido.</div>';
+            }
+        }
+        
+        cargarDetalle();
+    </script>
+</body>
+</html>

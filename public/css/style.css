@@ -1,0 +1,55 @@
+:root {
+    --azul-liga: #3b3a7f; 
+    --gris-fondo: #f8f9fa;
+}
+
+.bg-institucional { background-color: var(--azul-liga) !important; }
+.text-institucional { color: var(--azul-liga) !important; }
+.border-institucional { border-color: var(--azul-liga) !important; }
+
+/* Contenedor principal del partido para el hover */
+.partido-container {
+    transition: background-color 0.2s;
+}
+
+.partido-container:hover {
+    background-color: #f1f3f5 !important;
+}
+
+/* Alineación de columnas de los partidos */
+.estado {
+    width: 60px;
+    font-size: 0.85rem;
+}
+
+.equipo {
+    width: 35%;
+    display: flex;
+    align-items: center;
+}
+
+.equipo.text-end {
+    justify-content: flex-end;
+}
+
+.resultado {
+    width: 20%;
+    min-width: 60px;
+}
+
+/* Fila de goleadores (estilo Promiedos) */
+.goles-fila {
+    font-size: 0.8rem;
+    margin-top: -5px; /* Sube los goles un poquito para que no queden tan despegados */
+}
+
+/* Escudos genéricos */
+.escudo-placeholder {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Fondos específicos */
+.text-success { color: #198754 !important; } /* Verde Promiedos */

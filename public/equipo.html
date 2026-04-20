@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LFRC - Detalle del Equipo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .bg-institucional { background-color: #3F3A85 !important; }
+        .text-institucional { color: #3F3A85 !important; }
+        
+        .racha-badge {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-right: 5px;
+        }
+        
+        .posicion-header {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3F3A85;
+            padding: 8px 15px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-institucional shadow-sm mb-0">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center text-white text-decoration-none opacity-75" href="index.html" style="transition: 0.2s;" onmouseover="this.classList.remove('opacity-75')" onmouseout="this.classList.add('opacity-75')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                </svg>
+                <span class="fs-6 fw-normal mb-0">Volver a inicio</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="bg-white shadow-sm py-5 mb-4 text-center border-bottom">
+        <div class="container">
+            <img id="equipo-escudo" src="" alt="Escudo" style="width: 140px; height: 140px; object-fit: contain;">
+            <h2 id="equipo-nombre" class="fw-bold mt-3 mb-1 text-dark">Cargando...</h2>
+            <span id="equipo-division" class="badge bg-secondary"></span>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        <div class="row">
+            
+            <div class="col-12 col-lg-4 mb-4">
+                
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-institucional text-white fw-bold border-0">RACHA (Últimos 5 partidos)</div>
+                    <div class="card-body text-center p-4">
+                        <div id="contenedor-racha" class="d-flex justify-content-center">
+                            <span class="text-muted">Cargando racha...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-institucional text-white fw-bold border-0">MÁXIMOS GOLEADORES</div>
+                    <ul class="list-group list-group-flush" id="lista-goleadores-club">
+                        <li class="list-group-item text-center text-muted p-3">Cargando goleadores...</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-institucional text-white fw-bold border-0">PLANTEL ACTUAL</div>
+                    <div class="card-body p-4" id="contenedor-plantel">
+                        <div class="text-center text-muted">Cargando plantel...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api'; // <-- CAMBIO A RUTA RELATIVA
+
+        // Utilidad para calcular la edad exacta en base a la fecha de nacimiento
+        function calcularEdad(fechaString) {
+            if (!fechaString) return '-';
+            const hoy = new Date();
+            const fechaNac = new Date(fechaString);
+            let edad = hoy.getFullYear() - fechaNac.getFullYear();
+            const m = hoy.getMonth() - fechaNac.getMonth();
+            if (m < 0 || (m === 0 && hoy.getDate() < fechaNac.getDate())) {
+                edad--;
+            }
+            return edad;
+        }
+
+        // Lógica para determinar si el equipo ganó, empató o perdió
+        function determinarResultado(partido, idClub) {
+            const esLocal = (partido.id_club_local === parseInt(idClub));
+            const golesFavor = esLocal ? partido.goles_local : partido.goles_visitante;
+            const golesContra = esLocal ? partido.goles_visitante : partido.goles_local;
+
+            if (golesFavor > golesContra) return { letra: 'G', color: 'bg-success', res: `${golesFavor}-${golesContra}` };
+            if (golesFavor < golesContra) return { letra: 'P', color: 'bg-danger', res: `${golesFavor}-${golesContra}` };
+            return { letra: 'E', color: 'bg-secondary', res: `${golesFavor}-${golesContra}` };
+        }
+
+        async function cargarDatosEquipo() {
+            const params = new URLSearchParams(window.location.search);
+            const idClub = params.get('id');
+
+            if(!idClub) return window.location.href = 'index.html';
+
+            try {
+                // 1. Cargar Info Básica
+                const resClub = await fetch(`${API_URL}/clubes/${idClub}`);
+                const club = await resClub.json();
+                
+                document.getElementById('equipo-nombre').innerText = club.nombre;
+                document.getElementById('equipo-escudo').src = club.escudo_url;
+                document.getElementById('equipo-division').innerText = club.id_division === 1 ? 'PRIMERA A' : `PRIMERA B - ZONA ${club.zona?.toUpperCase() || 'S/N'}`;
+
+                // 2. Cargar Goleadores del Club
+                const resGol = await fetch(`${API_URL}/goleadores`);
+                const todosGoleadores = await resGol.json();
+                
+                // Filtramos la vista SQL global para traer solo los de este club
+                const goleadoresClub = todosGoleadores.filter(g => g.id_club === parseInt(idClub));
+                const tbodyGol = document.getElementById('lista-goleadores-club');
+                tbodyGol.innerHTML = '';
+
+                if(goleadoresClub.length === 0) {
+                    tbodyGol.innerHTML = '<li class="list-group-item text-center text-muted p-3">Ningún jugador ha marcado goles aún.</li>';
+                } else {
+                    goleadoresClub.slice(0, 5).forEach(g => { // Mostramos el Top 5 interno
+                        tbodyGol.innerHTML += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                                <span class="fw-bold text-dark">${g.nombre} ${g.apellido}</span>
+                                <span class="badge bg-institucional rounded-pill fs-6">${g.goles} ⚽</span>
+                            </li>
+                        `;
+                    });
+                }
+
+                // 3. Cargar Racha (Últimos 5 finalizados)
+                const resPart = await fetch(`${API_URL}/clubes/${idClub}/partidos`);
+                const partidos = await resPart.json();
+                
+                // Filtramos solo los que ya terminaron para evaluar el resultado
+                const finalizados = partidos.filter(p => p.estado === 'Finalizado').slice(0, 5);
+                
+                const contRacha = document.getElementById('contenedor-racha');
+                contRacha.innerHTML = '';
+                
+                if (finalizados.length === 0) {
+                    contRacha.innerHTML = '<span class="text-muted">No hay partidos finalizados registrados.</span>';
+                } else {
+                    // Invertimos el array para que el más reciente (el que jugaron último) quede a la derecha
+                    finalizados.reverse().forEach(p => {
+                        const r = determinarResultado(p, idClub);
+                        const rival = p.id_club_local === parseInt(idClub) ? p.club_visitante.nombre : p.club_local.nombre;
+                        
+                        contRacha.innerHTML += `
+                            <div class="racha-badge ${r.color}" title="${r.letra === 'G' ? 'Victoria' : r.letra === 'P' ? 'Derrota' : 'Empate'} ${r.res} vs ${rival}">
+                                ${r.letra}
+                            </div>
+                        `;
+                    });
+                }
+
+                // 4. Cargar Plantel agrupado por posición
+                const resJug = await fetch(`${API_URL}/clubes/${idClub}/jugadores`);
+                const jugadores = await resJug.json();
+                
+                const contPlantel = document.getElementById('contenedor-plantel');
+                contPlantel.innerHTML = '';
+
+                if (jugadores.length === 0) {
+                    contPlantel.innerHTML = '<div class="alert alert-light border">No hay jugadores registrados en el sistema para este club.</div>';
+                    return;
+                }
+
+                const agrupados = { 'Arquero': [], 'Defensor': [], 'Mediocampista': [], 'Delantero': [] };
+                
+                jugadores.forEach(j => {
+                    const pos = j.posicion || 'Delantero'; // Fallback por seguridad
+                    if (agrupados[pos]) agrupados[pos].push(j);
+                });
+
+                // Orden táctico para mostrar
+                const orden = ['Arquero', 'Defensor', 'Mediocampista', 'Delantero'];
+                
+                orden.forEach(puesto => {
+                    if (agrupados[puesto].length > 0) {
+                        contPlantel.innerHTML += `<div class="posicion-header">${puesto}s</div>`;
+                        
+                        let htmlLista = '<div class="row">';
+                        agrupados[puesto].forEach(j => {
+                            const edad = calcularEdad(j.fecha_nacimiento);
+                            htmlLista += `
+                                <div class="col-12 col-md-6 mb-2">
+                                    <div class="p-3 border rounded shadow-sm bg-white d-flex justify-content-between align-items-center">
+                                        <div class="fw-bold text-dark text-truncate">${j.apellido}, <span class="fw-normal">${j.nombre}</span></div>
+                                        <div class="text-muted small">${edad !== '-' ? edad + ' años' : ''}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        htmlLista += '</div>';
+                        contPlantel.innerHTML += htmlLista;
+                    }
+                });
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('equipo-nombre').innerText = "Error de conexión";
+            }
+        }
+
+        cargarDatosEquipo();
+    </script>
+</body>
+</html>

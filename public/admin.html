@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - LFRC</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #121212; color: #ffffff; }
+        .bg-dark-panel { background-color: #1e1e1e; border: 1px solid #333; }
+        
+        .btn-plus { background-color: #28a745; color: white; font-size: 1.5rem; border: none; }
+        .btn-minus { background-color: #dc3545; color: white; font-size: 1.2rem; border: none; }
+        
+        .btn-plus:hover { background-color: #32c653 !important; color: white !important; opacity: 1 !important; }
+        .btn-minus:hover { background-color: #f14c5d !important; color: white !important; opacity: 1 !important; }
+        
+        .escondido { display: none !important; }
+
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear,
+        input[type="password"]::-webkit-contacts-auto-fill-button,
+        input[type="password"]::-webkit-credentials-auto-fill-button {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-login" class="container d-flex justify-content-center align-items-center vh-100">
+        <div class="card bg-dark-panel text-light p-4 shadow w-100" style="max-width: 400px;">
+            <div class="text-center mb-4">
+                <h4 class="text-white fw-bold">PANEL DE CONTROL</h4>
+                <p class="text-white small">Acceso restringido</p>
+            </div>
+            
+            <div class="input-group mb-3">
+                <input type="password" id="pass-input" class="form-control bg-dark text-light border-secondary" placeholder="Contraseña de acceso">
+                <span class="input-group-text bg-dark border-secondary" onclick="togglePassword()" style="cursor: pointer;">
+                    <i id="toggle-icon" class="bi bi-eye text-white"></i>
+                </span>
+            </div>
+
+            <button class="btn btn-primary w-100 fw-bold" onclick="iniciarSesion()">Ingresar al Sistema</button>
+        </div>
+    </div>
+
+    <div id="pantalla-dashboard" class="container py-4 escondido">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-2">
+            <h4 class="mb-0 text-white fw-bold text-uppercase">Panel de Control</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="cerrarSesion()">Cerrar sesión</button>
+        </div>
+
+        <div id="lista-partidos-admin" class="row">
+            <div class="text-center text-muted">Cargando partidos para administrar...</div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGol" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark-panel text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Registrar Gol</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modal-id-partido">
+                    <input type="hidden" id="modal-equipo-tipo">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Minuto del Gol</label>
+                        <input type="text" id="modal-minuto" class="form-control bg-dark text-light border-secondary" placeholder="Ej: 45 o 90+5">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Autor del Gol</label>
+                        <select id="modal-jugador" class="form-select bg-dark text-light border-secondary">
+                            <option value="">Cargando jugadores...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success fw-bold" onclick="guardarGolCompleto()">Guardar Gol</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEliminarGol" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark-panel text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-danger">Eliminar Gol</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modal-elim-id-partido">
+                    <input type="hidden" id="modal-elim-equipo-tipo">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Seleccionar Gol a Anular</label>
+                        <select id="modal-eliminar-select" class="form-select bg-dark text-light border-secondary">
+                            <option value="">Cargando goles registrados...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger fw-bold" onclick="guardarEliminarGol()">Eliminar Gol</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = '/api'; // <-- CAMBIO A RUTA RELATIVA
+        let modalInstancia = null;
+        let modalEliminarInstancia = null;
+
+        // Convierte la fecha ISO de BD al formato que requiere el <input type="datetime-local">
+        function formatFechaParaInput(fechaIso) {
+            if (!fechaIso) return '';
+            const d = new Date(fechaIso);
+            const tzoffset = d.getTimezoneOffset() * 60000;
+            return (new Date(d - tzoffset)).toISOString().slice(0, 16);
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('pass-input');
+            const icon = document.getElementById('toggle-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        }
+
+        function iniciarSesion() {
+            const pass = document.getElementById('pass-input').value;
+            if (pass === 'admin123') {
+                document.getElementById('pantalla-login').classList.add('escondido');
+                document.getElementById('pantalla-dashboard').classList.remove('escondido');
+                cargarDashboard();
+            } else {
+                alert('Contraseña incorrecta');
+            }
+        }
+
+        function cerrarSesion() {
+            document.getElementById('pantalla-dashboard').classList.add('escondido');
+            document.getElementById('pantalla-login').classList.remove('escondido');
+            document.getElementById('pass-input').value = '';
+            document.getElementById('pass-input').type = 'password';
+        }
+
+        async function cargarDashboard() {
+            try {
+                const res = await fetch(`${API_URL}/partidos`);
+                const partidos = await res.json();
+                const contenedor = document.getElementById('lista-partidos-admin');
+                contenedor.innerHTML = '';
+
+                partidos.forEach(p => {
+                    let badgeTexto = p.club_local.id_division === 1 ? 'A' : `B - ZONA ${p.club_local.zona?.toUpperCase() || 'S/N'}`;
+
+                    const col = document.createElement('div');
+                    col.className = 'col-12 col-md-6 mb-4';
+                    
+                    col.innerHTML = `
+                        <div class="card bg-dark-panel shadow-sm h-100">
+                            <div class="card-header border-secondary d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-white small">${badgeTexto}</span>
+                                    <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto" 
+                                            onchange="actualizarEstado(${p.id_partido}, this.value, ${p.goles_local}, ${p.goles_visitante})">
+                                        <option value="Programado" ${p.estado === 'Programado' ? 'selected' : ''}>Programado</option>
+                                        <option value="PT" ${p.estado === 'PT' ? 'selected' : ''}>En vivo - PT</option>
+                                        <option value="ET" ${p.estado === 'ET' ? 'selected' : ''}>En vivo - ET</option>
+                                        <option value="ST" ${p.estado === 'ST' ? 'selected' : ''}>En vivo - ST</option>
+                                        <option value="Finalizado" ${p.estado === 'Finalizado' ? 'selected' : ''}>Finalizado</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="fecha-container-${p.id_partido}" class="${p.estado === 'Programado' ? 'd-flex' : 'd-none'} justify-content-between align-items-center mt-2 pt-2 border-top border-secondary">
+                                    <span class="text-muted small me-2">Día y Hora:</span>
+                                    <input type="datetime-local" id="fecha-${p.id_partido}" class="form-control form-control-sm bg-dark text-light border-secondary me-2" value="${formatFechaParaInput(p.fecha_hora)}">
+                                    <button class="btn btn-sm btn-primary" onclick="guardarFecha(${p.id_partido}, ${p.goles_local}, ${p.goles_visitante})"><i class="bi bi-floppy"></i> Guardar</button>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body">
+                                <div class="row text-center align-items-center">
+                                    <div class="col-4">
+                                        <div class="fw-bold mb-2 text-white" style="font-size: 0.9rem;">${p.club_local.nombre}</div>
+                                        <button class="btn btn-plus w-100 mb-2" onclick="abrirModalGol(${p.id_partido}, 'local', ${p.club_local.id_club})">+</button>
+                                        <button class="btn btn-minus w-100" onclick="abrirModalEliminarGol(${p.id_partido}, 'local', ${p.club_local.id_club}, ${p.goles_local})">-</button>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="display-5 fw-bold text-warning text-nowrap">
+                                            <span id="goles-loc-${p.id_partido}">${p.goles_local || 0}</span> - <span id="goles-vis-${p.id_partido}">${p.goles_visitante || 0}</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold mb-2 text-white" style="font-size: 0.9rem;">${p.club_visitante.nombre}</div>
+                                        <button class="btn btn-plus w-100 mb-2" onclick="abrirModalGol(${p.id_partido}, 'visitante', ${p.club_visitante.id_club})">+</button>
+                                        <button class="btn btn-minus w-100" onclick="abrirModalEliminarGol(${p.id_partido}, 'visitante', ${p.club_visitante.id_club}, ${p.goles_visitante})">-</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    contenedor.appendChild(col);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function actualizarEstado(idPartido, nuevoEstado, gLocal, gVis) {
+            // Animación para mostrar/ocultar el input de fecha según el estado elegido
+            const container = document.getElementById(`fecha-container-${idPartido}`);
+            if (nuevoEstado === 'Programado') {
+                container.classList.remove('d-none');
+                container.classList.add('d-flex');
+            } else {
+                container.classList.add('d-none');
+                container.classList.remove('d-flex');
+            }
+            await mandarActualizacion(idPartido, nuevoEstado, gLocal, gVis);
+        }
+
+        async function guardarFecha(idPartido, gLocal, gVis) {
+            const fechaVal = document.getElementById(`fecha-${idPartido}`).value;
+            if (!fechaVal) return alert("Por favor selecciona una fecha y hora");
+            await mandarActualizacion(idPartido, 'Programado', gLocal, gVis, fechaVal);
+            alert("¡Horario del partido actualizado correctamente!");
+            cargarDashboard();
+        }
+
+        async function mandarActualizacion(idPartido, estado, gLocal, gVis, fechaHora) {
+            try {
+                const bodyData = { id_partido: idPartido, estado: estado, goles_local: gLocal, goles_visitante: gVis };
+                if (fechaHora !== undefined) bodyData.fecha_hora = fechaHora;
+
+                await fetch(`${API_URL}/partidos/actualizar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        // --- AGREGAR GOL ---
+        async function abrirModalGol(idPartido, tipoEquipo, idClub) {
+            document.getElementById('modal-id-partido').value = idPartido;
+            document.getElementById('modal-equipo-tipo').value = tipoEquipo;
+            document.getElementById('modal-minuto').value = '';
+            
+            const selectJugadores = document.getElementById('modal-jugador');
+            selectJugadores.innerHTML = '<option value="">Cargando...</option>';
+            
+            if(!modalInstancia) modalInstancia = new bootstrap.Modal(document.getElementById('modalGol'));
+            modalInstancia.show();
+            
+            try {
+                const res = await fetch(`${API_URL}/clubes/${idClub}/jugadores`);
+                const jugadores = await res.json();
+                selectJugadores.innerHTML = '<option value="">Seleccionar Jugador...</option>';
+                jugadores.forEach(j => {
+                    selectJugadores.innerHTML += `<option value="${j.tipo_doc}|${j.nro_doc}">${j.nombre} ${j.apellido}</option>`;
+                });
+            } catch (e) { selectJugadores.innerHTML = '<option value="">Error</option>'; }
+        }
+
+        async function guardarGolCompleto() {
+            const idPartido = document.getElementById('modal-id-partido').value;
+            const tipoEquipo = document.getElementById('modal-equipo-tipo').value;
+            const minuto = document.getElementById('modal-minuto').value.trim();
+            const jugadorInfo = document.getElementById('modal-jugador').value;
+            
+            if (!jugadorInfo || !minuto) return alert("Completá todos los campos.");
+
+            const regexMinuto = /^([1-9][0-9]*|(45|90)\+[1-9][0-9]*)$/;
+            if (!regexMinuto.test(minuto)) {
+                return alert("Minuto inválido. Usa números enteros (Ej: 15, 80) o tiempo de descuento válido (Ej: 45+2, 90+5).");
+            }
+            
+            const [tipo_doc, nro_doc] = jugadorInfo.split('|');
+            
+            try {
+                await fetch(`${API_URL}/eventos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_partido: idPartido, tipo_doc: tipo_doc, nro_doc: nro_doc, minuto: minuto, tipo_evento: 'Gol' })
+                });
+
+                const gLoc = parseInt(document.getElementById(`goles-loc-${idPartido}`).innerText);
+                const gVis = parseInt(document.getElementById(`goles-vis-${idPartido}`).innerText);
+                let nuevosLoc = tipoEquipo === 'local' ? gLoc + 1 : gLoc;
+                let nuevosVis = tipoEquipo === 'visitante' ? gVis + 1 : gVis;
+
+                await mandarActualizacion(idPartido, undefined, nuevosLoc, nuevosVis);
+                modalInstancia.hide();
+                cargarDashboard();
+            } catch (e) { alert("Error al guardar gol."); }
+        }
+
+        // --- ELIMINAR GOL ---
+        async function abrirModalEliminarGol(idPartido, tipoEquipo, idClub, marcadorActual) {
+            if (marcadorActual <= 0) return;
+            
+            document.getElementById('modal-elim-id-partido').value = idPartido;
+            document.getElementById('modal-elim-equipo-tipo').value = tipoEquipo;
+            
+            const selectGoles = document.getElementById('modal-eliminar-select');
+            selectGoles.innerHTML = '<option value="">Buscando goles...</option>';
+
+            if(!modalEliminarInstancia) modalEliminarInstancia = new bootstrap.Modal(document.getElementById('modalEliminarGol'));
+            modalEliminarInstancia.show();
+
+            try {
+                const res = await fetch(`${API_URL}/partidos/${idPartido}`);
+                const partido = await res.json();
+                const goles = partido.eventos.filter(e => e.jugador && e.jugador.id_club === idClub && e.tipo_evento === 'Gol');
+
+                selectGoles.innerHTML = '<option value="">Seleccionar Gol a Anular...</option>';
+                goles.forEach(g => {
+                    const val = `${g.tipo_doc_jugador}|${g.nro_doc_jugador}|${g.minuto}`;
+                    selectGoles.innerHTML += `<option value="${val}">Min ${g.minuto}' - ${g.jugador.nombre} ${g.jugador.apellido}</option>`;
+                });
+                
+                if(goles.length === 0) selectGoles.innerHTML = '<option value="">No hay autores registrados para eliminar</option>';
+            } catch (e) { selectGoles.innerHTML = '<option value="">Error al conectar con la base de datos</option>'; }
+        }
+
+        async function guardarEliminarGol() {
+            const idPartido = document.getElementById('modal-elim-id-partido').value;
+            const tipoEquipo = document.getElementById('modal-elim-equipo-tipo').value;
+            const golInfo = document.getElementById('modal-eliminar-select').value;
+
+            if (!golInfo) return alert("Selecciona un gol.");
+
+            const [tipo_doc, nro_doc, minuto] = golInfo.split('|');
+            try {
+                await fetch(`${API_URL}/eventos/eliminar`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_partido: idPartido, tipo_doc: tipo_doc, nro_doc: nro_doc, minuto: minuto, tipo_evento: 'Gol' })
+                });
+
+                const gLoc = parseInt(document.getElementById(`goles-loc-${idPartido}`).innerText);
+                const gVis = parseInt(document.getElementById(`goles-vis-${idPartido}`).innerText);
+                let nuevosLoc = (tipoEquipo === 'local') ? gLoc - 1 : gLoc;
+                let nuevosVis = (tipoEquipo === 'visitante') ? gVis - 1 : gVis;
+
+                await mandarActualizacion(idPartido, undefined, nuevosLoc, nuevosVis);
+                modalEliminarInstancia.hide();
+                cargarDashboard();
+            } catch (e) { alert("Error al eliminar."); }
+        }
+    </script>
+</body>
+</html>
